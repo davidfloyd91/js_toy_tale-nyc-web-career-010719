@@ -1,98 +1,113 @@
-const toyForm = document.querySelector('.container')
-const toyCollection = document.querySelector('#toy-collection')
+const addBtn = document.querySelector('#new-toy-btn');
+const toyForm = document.querySelector('.container');
+const toyName = toyForm.querySelector('#toy-name');
+const toyImage = toyForm.querySelector('#toy-image');
+const toyCollection = document.querySelector('#toy-collection');
+const toysUrl = 'http://localhost:3000/toys';
+let allToys = [];
+let addToy = false;
 
-document.addEventListener("DOMContentLoaded", () => {
-  getFetch()
+toyCollection.addEventListener("click", e => {
+  if (e.target.classList.contains('like-btn')) {
+    let toy = allToys.find(t => {
+      return e.target.dataset.id == t.id;
+    });
+    likeToy(toy);
+  };
+});
 
-
-  const createButton = document.querySelector(".submit")
-  .addEventListener("click", e => {
-    e.preventDefault();
-    let toyName = document.querySelector("#name").value
-    let toyImage = document.querySelector("#image").value
-    createToy(toyName, toyImage);
-  })
-}); //DOMContentLoaded
-
-function idButtons() {
-  let buttons = document.getElementsByClassName('like-btn');
-  for (let item of buttons) {
-    item.addEventListener("click", e => {
-      addALike(e.target.dataset.id, e.target.dataset.likes)
-    })
-  }
-}
-
-const allToys = []
-let addToy = false
-
-function getFetch() {
-  toyCollection.innerHTML = ""
-  fetch('http://localhost:3000/toys')
-  .then(toys => toys.json())
-  .then(function(parsed) {
-    for (var toy in parsed) {
-      allToys.push(parsed[toy]);
-      toyCollection.innerHTML += `
-      <div class="card">
-        <h2>${parsed[toy].name}</h2>
-        <img src="${parsed[toy].image}" class="toy-avatar" />
-        <p>${parsed[toy].likes} Likes </p>
-        <button class='like-btn' data-likes="${parsed[toy].likes}" data-id="${parsed[toy].id}" id="like-btn-${parsed[toy].id}">Like <3</button>
-      </div>`
-    }
-  })
-  .then(idButtons)
-}
-function createToy(toyName, toyImage) {
-  fetch("http://localhost:3000/toys", {
-    method: "POST",
-    mode: "cors",
-    cache: "no-cache",
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      "Accept": "application/json"
-    },
-    body: JSON.stringify({name: toyName, image: toyImage, likes: 0})
-  })
-  .then(response => response.json())
-  .then(function(toy) {
-    allToys.push(toy)
-    getFetch()
-  })
-}
-
-function addALike(toyId, toyLikes) {
-  fetch(`http://localhost:3000/toys/${toyId}`, {
+function likeToy(toy) {
+  let data = {
+    likes: toy.likes + 1
+  };
+  fetch(`${toysUrl}/${toy.id}`, {
     method: "PATCH",
-    mode: "cors",
-    cache: "no-cache",
-    credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
-      "Accept": "application/json"
     },
-    body: JSON.stringify({likes: parseInt(toyLikes) + 1})
+    body: JSON.stringify(data),
   })
-  .then(response => response.json())
-  .then(function(toy) {
-    allToys.push(toy)
-    getFetch()
+  .then(resp => resp.json())
+  .then(toy => {
+    let juguete = allToys.find(t => {
+      return t.id == toy.id
+    });
+    juguete.likes = toy.likes;
+    return juguete;
   })
-}
+  .then(toy => {
+    let toyDiv = toyCollection.querySelector(`#x${toy.id}`);
+    let likesLine = toyDiv.querySelector('.likes-line');
+    likesLine.innerText = likesLine.innerText.replace(/(\d+)/, `${toy.likes}`)
+  });
+};
 
-const addBtn = document.querySelector('#new-toy-btn')
+function getToys() {
+  fetch(toysUrl)
+  .then(resp => resp.json())
+  .then(toys => {
+    toys.forEach(toy => {
+      allToys.push(toy);
+    });
+    return allToys;
+  })
+  .then(toys => displayToys(toys))
+};
 
-// addBtn.addEventListener('click', () => {
-//   // hide & seek with the form
-//   addToy = !addToy
-//   if (addToy) {
-//     toyForm.style.display = 'block'
-//     // submit listener here
-//   } else {
-//     toyForm.style.display = 'none'
-//   }
-// })
+function displayToys(toys) {
+  toyCollection.innerHTML = '';
+  toys.forEach(toy => {
+    displayOneToy(toy);
+  });
+};
 
-// OR HERE!
+function displayOneToy(toy) {
+  toyCollection.innerHTML += `
+    <div class="card" id="x${toy.id}">
+      <h2>${toy.name}</h2>
+      <img src=${toy.image} class="toy-avatar" />
+      <p class="likes-line">${toy.likes} Likes </p>
+      <button class="like-btn" data-id="${toy.id}">Like <3</button>
+    </div>
+  `;
+};
+
+addBtn.addEventListener('click', () => {
+  addToy = !addToy;
+  if (addToy) {
+    toyForm.style.display = 'block';
+    toyForm.addEventListener('submit', e => {
+      e.preventDefault();
+      let data = {
+        name: toyName.value,
+        image: toyImage.value,
+        likes: 0
+      };
+      manufactureToy(data);
+    });
+  } else {
+    toyForm.style.display = 'none';
+  };
+});
+
+function manufactureToy(data) {
+  fetch(toysUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  })
+  .then(resp => resp.json())
+  .then(toy => {
+    allToys.push(toy);
+    return allToys;
+  })
+  .then(toys => {
+    displayToys(toys);
+    toyName.value = '';
+    toyImage.value = '';
+  })
+};
+
+getToys();
